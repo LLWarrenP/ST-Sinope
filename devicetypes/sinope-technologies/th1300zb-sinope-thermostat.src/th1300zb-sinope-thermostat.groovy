@@ -1,29 +1,29 @@
 /**
 Copyright Sinopé Technologies
-1.0.1
-SVN-435
+1.0.3
+SVN-493
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 **/
 metadata {
 
 preferences {
-		input("AirFloorModeParam", "enum", title: "Control mode", description:"Control mode using the floor or ambient temperature.", options: ["Ambient", "Floor"], multiple: false, required: false)
-        input("RoomSetpointMinParam", "number", title:"Minimum Setpoint (5 to 36)", range:("5..36"), description:"Minimum setpoint temperature available. Must be lower than Maximum setpoint.", required: false)
-    	input("RoomSetpointMaxParam", "number", title:"Maximum Setpoint (5 to 36)", range:("5..36"), description:"Maximum setpoint temperature available. Must be higher than Minimum setpoint.", required: false)
+		input("AirFloorModeParam", "enum", title: "Control mode (Default: Floor)", description:"Control mode using the floor or ambient temperature.", options: ["Ambient", "Floor"], multiple: false, required: false)
+        input("RoomSetpointMinParam", "number", title:"Minimum Setpoint (5 to 36, Default: 5)", range:("5..36"), description:"Minimum setpoint temperature available. Must be lower than Maximum setpoint.", required: false)
+    	input("RoomSetpointMaxParam", "number", title:"Maximum Setpoint (5 to 36, Default: 36)", range:("5..36"), description:"Maximum setpoint temperature available. Must be higher than Minimum setpoint.", required: false)
 		//input("UnoccupySetpointParam", "number", title: "Away setpoint (5 to 36)", description: "Thermostat's assigned temperature when the network is in away mode.", range:("5..36"), required: false)
-        input("BacklightAutoDimParam", "enum", title:"Backlight setting", description: "On Demand or Sensing", options: ["Sensing", "On Demand"], multiple: false, required: false)
-    	input("KbdLockParam", "enum", title: "Keypad lock", description: "Enable or disable the device's buttons.",options: ["Lock", "Unlock"], multiple: false, required: false)
-    	input("TimeFormatParam", "enum", title:"Time Format", description: "Time format displayed by the device.", options:["24h", "12h AM/PM"], multiple: false, required: false)
-		input("zipcode", "text", title: "ZipCode", description: "Enter your ZipCode for setting outdoor temperature", displayDuringSetup: false, required: false)
-    	input("FloorSensorTypeParam", "enum", title:"Probe type", description: "Choose probe type. Default 10k", options: ["10k", "12k"], multiple: false, required: false)
-    	input("FloorMaxAirTemperatureParam", "number", title:"Ambient limit (5 to 36)", range:("5..36"),
+        input("BacklightAutoDimParam", "enum", title:"Backlight setting (Default: Sensing)", description: "On Demand or Sensing", options: ["Sensing", "On Demand"], multiple: false, required: false)
+    	input("KbdLockParam", "enum", title: "Keypad lock (Default: Unlocked)", description: "Enable or disable the device's buttons.",options: ["Lock", "Unlock"], multiple: false, required: false)
+    	input("TimeFormatParam", "enum", title:"Time Format (Default: 24h)", description: "Time format displayed by the device.", options:["24h", "12h AM/PM"], multiple: false, required: false)
+    	input("EnableOutdorTemperatureParam", "bool", title: "enable/disable outdoor temperature", description: "Set it to true to enable outdoor temperature on the thermostat")
+        input("FloorSensorTypeParam", "enum", title:"Probe type (Default: 10k)", description: "Choose probe type.", options: ["10k", "12k"], multiple: false, required: false)
+    	input("FloorMaxAirTemperatureParam", "number", title:"Ambient limit (5 to 36, Default: Off)", range:("5..36"),
     		description: "The maximum ambient temperature limit when in floor control mode.", required: false)
-        input("FloorLimitMinParam", "number", title:"Floor low limit (5 to 36)", range:("5..36"), description: "The minimum temperature limit of the floor when in ambient control mode.", required: false)
-    	input("FloorLimitMaxParam", "number", title:"Floor high limit (5 to 36)", range:("5..36"), description: "The maximum temperature limit of the floor when in ambient control mode.", required: false)
-    	input("AuxLoadParam", "number", title:"Auxiliary load value", range:("0..65535"),
+        input("FloorLimitMinParam", "number", title:"Floor low limit (5 to 36, Default: Off)", range:("5..36"), description: "The minimum temperature limit of the floor when in ambient control mode.", required: false)
+    	input("FloorLimitMaxParam", "number", title:"Floor high limit (5 to 36, Default: Off)", range:("5..36"), description: "The maximum temperature limit of the floor when in ambient control mode.", required: false)
+    	input("AuxLoadParam", "number", title:"Auxiliary load value (Default: 0)", range:("0..65535"),
         	description: "Enter the power in watts of the heating element connected to the auxiliary output.", required: false)
-    	input("trace", "bool", title: "Trace", description: "Set it to true to enable tracing")
+    	input("trace", "bool", title: "Trace (Only for debugging)", description: "Set it to true to enable tracing")
 		input("logFilter", "number", title: "Trace level", range: "1..5",
 			description: "1= ERROR only, 2= <1+WARNING>, 3= <2+INFO>, 4= <3+DEBUG>, 5= <4+TRACE>")
 }
@@ -52,7 +52,7 @@ preferences {
 		//		attribute "keypadLockStatus" ,"enum", ["unlock", "lock1","lock2","lock3","lock4","lock5"]
         attribute "gfciStatus", "enum", ["OK", "error"]
         attribute "floorLimitStatus", "enum", ["OK", "floorLimitLowReached", "floorLimitMaxReached", "floorAirLimitLowReached", "floorAirLimitMaxReached"]
-        attribute "temperature", "number"
+        attribute "temperature", "string"        
 
 		command "heatLevelUp"
 		command "heatLevelDown"
@@ -72,12 +72,11 @@ preferences {
 		command "lock1"
 		command "setLockStatus"
         command "updateZipCode"
-
+		
 		fingerprint endpoint: "1",
 			profileId: "0104",
 			inClusters: "0000,0003,0004,0005,0201,0204,0402,0B04,0B05,FF01",
 			outClusters: "0003", manufacturer: "Sinope Technologies", model: "TH1300ZB"
-
 	}
 
 
@@ -88,10 +87,9 @@ preferences {
 
 	//--------------------------------------------------------------------------------------------------------
 	tiles(scale: 2) {
-
 		multiAttributeTile(name: "thermostatMulti", type: "thermostat", width: 6, height: 4, canChangeIcon: true) {
 			tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
-				attributeState("default", label: '${currentValue}', unit: "dF", backgroundColor: "#269bd2")
+				attributeState("default", label: '${currentValue}�', unit: "dF", backgroundColor: "#269bd2")
 			}
 			tileAttribute("device.heatingSetpoint", key: "VALUE_CONTROL") {
 				attributeState("VALUE_UP", action: "heatLevelUp")
@@ -116,10 +114,7 @@ preferences {
 		//-- Value Tiles -------------------------------------------------------------------------------------------
 
 		valueTile("temperature", "device.temperature", inactiveLabel: false, width: 2, height: 2) {
-			state("temperature", label:'${currentValue}�',
-				backgroundColors: getBackgroundColors()
-			)
-		}
+			state("temperature", label:'${currentValue}�', backgroundColors: getBackgroundColors() )		}
 
 		valueTile("heatingDemand", "device.heatingDemand", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
 			state "heatingDemand", label: '${currentValue}%', unit: "%", backgroundColor: "#ffffff"
@@ -174,8 +169,8 @@ preferences {
 				backgroundColor: "#ffffff"
 		}
         standardTile("gfciStatus", "device.gfciStatus", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
-        	state "OK", label: "Gfci", backgroundColor: "#44b621"//green
-            state "error", label: "Gfci", backgroundColor: "#bc2323"//red
+        	state "OK", label: "GFCI", backgroundColor: "#44b621"//green
+            state "error", label: "GFCI", backgroundColor: "#bc2323"//red
         }
 		standardTile("floorLimitStatus", "device.floorLimitStatus", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
 			state "OK", label: 'Limit OK', backgroundColor: "#44b621"//green
@@ -186,11 +181,14 @@ preferences {
 		}
 
 		//-- Control Tiles -----------------------------------------------------------------------------------------
-
+		/*controlTile("levelSliderControl", "device.heatingSetpoint", "slider", height: 2, width: 6, inactiveLabel: false, range:"(5..36)") {
+             state "heatingSetpoint", action:"setLevel"
+        }*/
 		//-- Main & Details ----------------------------------------------------------------------------------------
 
 		main("thermostatMulti")
 		details(["thermostatMulti",
+        	//"levelSliderControl",
 			//			"heatLevelUp","heatingSetpoint","heatLevelDown",
             //"temperature",
 			"thermostatMode",
@@ -203,6 +201,23 @@ preferences {
 			"refresh"
 		])
 	}
+}
+
+def setLevel(value)
+{
+	traceEvent(settings.logFilter,"level: ${value}", settings.trace)
+    if(RoomSetpointMinParam && (value < RoomSetpointMinParam))
+    {
+    	traceEvent(settings.logFilter,"value < RoomSetpointMinParam: ${value}", settings.trace)
+    	value = RoomSetpointMinParam
+    }
+    else if(RoomSetpointMaxParam && (value > RoomSetpointMaxParam))
+    {
+    	traceEvent(settings.logFilter,"value > RoomSetpointMaxParam: ${value}", settings.trace)
+    	value = RoomSetpointMaxParam
+    }
+    traceEvent(settings.logFilter,"setpoint: ${value}", settings.trace)
+    setHeatingSetpoint(value)
 }
 
 def getBackgroundColors() {
@@ -360,6 +375,8 @@ def updated() {
         else{
             cmds += zigbee.writeAttribute(0xFF01, 0x0118, 0x21, 0x0000)
         }
+        cmds += zigbee.readAttribute(0x0201, 0x0015)	// Rd thermostat Minimum heating setpoint
+        cmds += zigbee.readAttribute(0x0201, 0x0016)	// Rd thermostat Maximum heating setpoint
         
 		sendZigbeeCommands(cmds)
        	refresh_misc()
@@ -404,7 +421,6 @@ def parse(String description) {
        		def mapAdditionnalAttrs = descMap.additionalAttrs
             mapAdditionnalAttrs.each{add ->
             	traceEvent(settings.logFilter,"parse> mapAdditionnalAttributes : ( ${add} )",settings.trace)
-                log.debug "parse> mapAdditionnalAttributes : ${add}"
                 add.cluster = descMap.cluster
                 result += createCustomMap(add)
             }
@@ -421,7 +437,23 @@ def createCustomMap(descMap){
     def map = [: ]
 		if (descMap.cluster == "0201" && descMap.attrId == "0000") {
 			map.name = "temperature"
-			map.value = getTemperatureValue(descMap.value)
+			map.value = getTemperatureValue(descMap.value, true)
+            if(map.value > 158)
+            {
+            	map.value = "�Sensor Error"
+            }
+            else
+            {
+            	if(state?.scale == "C")
+                {
+                    //map.value = Double.toString(map.value)
+                    map.value = String.format( "%.1f", map.value )
+                }
+                else//scale == "F"
+                {
+                	map.value = String.format( "%d", map.value )
+                }
+            }
 			traceEvent(settings.logFilter, "parse>ACTUAL TEMP:  ${map.value}", settings.trace)
 		} else if (descMap.cluster == "0201" && descMap.attrId == "0008") {
 			map.name = "heatingDemand"
@@ -506,7 +538,6 @@ def createCustomMap(descMap){
             	map.value = "floorLimitLowReached"
             }else if(descMap.value.toInteger() == 2){
             	map.value = "floorLimitMaxReached"
-                log.debug "${descMap.value}"
             }else if(descMap.value.toInteger() == 3){
             	map.value = "floorAirLimitMaxReached"
             }else{
@@ -543,10 +574,12 @@ def getTemperatureValue(value, doRounding = false) {
 		if (scale == "C") {
 			if (doRounding) {
 				def tempValueString = String.format('%2.1f', celsius)
-				if (tempValueString.matches(".*([.,][456])")) {
+				//if (tempValueString.matches(".*([.,][456])")) {
+                if (tempValueString.matches(".*([.,][25-74])")) {
 					tempValueString = String.format('%2d.5', celsius.intValue())
 					traceEvent(settings.logFilter, "getTemperatureValue>value of $tempValueString which ends with 456=> rounded to .5", settings.trace)
-				} else if (tempValueString.matches(".*([.,][789])")) {
+				//} else if (tempValueString.matches(".*([.,][789])")) {
+                } else if (tempValueString.matches(".*([.,][75-99])")) {
 					traceEvent(settings.logFilter, "getTemperatureValue>value of$tempValueString which ends with 789=> rounded to next .0", settings.trace)
 					celsius = celsius.intValue() + 1
 					tempValueString = String.format('%2d.0', celsius.intValue())
@@ -555,7 +588,8 @@ def getTemperatureValue(value, doRounding = false) {
 					tempValueString = String.format('%2d.0', celsius.intValue())
 				}
 				return tempValueString.toDouble().round(1)
-			} else {
+			} 
+            else {
 				return celsius.round(1)
 			}
 
@@ -928,9 +962,9 @@ void occupy() {
 	cmds += zigbee.readAttribute(0x0201, 0x0002)
 	cmds += zigbee.readAttribute(0x0201, 0x0012)
 	sendZigbeeCommands(cmds)
-	def temp = (state?.previousOccupyTemp) ? state ?.previousOccupyTemp : (scale == 'C') ? 20.0 : 70
+	/*def temp = (state?.previousOccupyTemp) ? state ?.previousOccupyTemp : (scale == 'C') ? 20.0 : 70
 	sendEvent(name: "thermostatSetpoint", value: temp, unit: scale, displayed: true)
-	sendEvent(name: "heatingSetpoint", value: temp, unit: scale, displayed: true)
+	sendEvent(name: "heatingSetpoint", value: temp, unit: scale, displayed: true)*/
 }
 
 //-- Keypad Lock -----------------------------------------------------------------------------------------
@@ -990,7 +1024,7 @@ def configure(event = 'appTouch') {
 
 
 def refresh() {
-	if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 20000) {
+	if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 20000) {			// Check if last update > 20 sec
 		state.updatedLastRanAt = now() 
         
         occupy()
@@ -1015,12 +1049,13 @@ def refresh() {
         //cmds += zigbee.readAttribute(0x0201, 0x0014)	// Rd thermostat Unoccupied heating setpoint
         cmds += zigbee.readAttribute(0x0201, 0x0015)	// Rd thermostat Minimum heating setpoint
         cmds += zigbee.readAttribute(0x0201, 0x0016)	// Rd thermostat Maximum heating setpoint
+        cmds += zigbee.readAttribute(0xFF01, 0x0105)	// Rd thermostat Control mode
 
-        cmds += zigbee.configureReporting(0x0201, 0x0000, 0x29, 19, 300, 50) 	// local temperature
+        cmds += zigbee.configureReporting(0x0201, 0x0000, 0x29, 19, 300, 25) 	// local temperature
         cmds += zigbee.configureReporting(0x0201, 0x0008, 0x0020, 11, 301, 10) 	// heating demand
-        cmds += zigbee.configureReporting(0x0201, 0x0012, 0x0029, 15, 302, 40) 	// occupied heating setpoint
+        cmds += zigbee.configureReporting(0x0201, 0x0012, 0x0029, 8, 302, 40) 	// occupied heating setpoint
         cmds += zigbee.configureReporting(0xFF01, 0x0115, 0x30, 10, 3600, 1) 	// report gfci status each hours
-        cmds += zigbee.configureReporting(0xFF01, 0x010C, 0x30, 10, 3600, 1) 	// floor limit status each hours    
+        cmds += zigbee.configureReporting(0xFF01, 0x010C, 0x30, 10, 3600, 1) 	// floor limit status each hours
 
         sendZigbeeCommands(cmds)
         refresh_misc()
@@ -1029,46 +1064,42 @@ def refresh() {
 
 void refresh_misc() {
 
-	def scale=(state?.scale) ?: getTemperatureScale()
-    def weather = get_weather(settings.zipcode)
-
-	traceEvent(settings.logFilter,"refresh_misc>begin, scale=$scale, settings.zipcode=${settings.zipcode}, weather=$weather", settings.trace)
+    def weather = get_weather()
+	traceEvent(settings.logFilter,"refresh_misc>begin, settings.EnableOutdorTemperatureParam=${settings.EnableOutdorTemperatureParam}, weather=$weather", settings.trace)
 	def cmds=[]
 
 	if (weather) {
 		double tempValue
-		int outdoorTemp = weather.current_observation.temp_c.toInteger()
-		traceEvent(settings.logFilter,"refresh>outdoorTemp: ${weather.current_observation.temp_c}C",settings.trace)
-		String outdoorTempString        
-		if (scale == "C") {
-			tempValue = outdoorTemp.toDouble().round(1)
-			outdoorTempString = String.format('%2.1f', tempValue)
-		} else {
-			tempValue = celsiusToFahrenheit(outdoorTemp).toDouble().round()
-			outdoorTempString = String.format('%2d', tempValue.intValue())
-		}
+        int outdoorTemp = weather.toInteger()
+		String outdoorTempString
 		def isChange = isStateChange(device, name, outdoorTempString)
 		def isDisplayed = isChange        
 		sendEvent( name: "outdoorTemp", value: outdoorTempString, unit: scale, displayed: isDisplayed)
 		int outdoorTempValue
 		int outdoorTempToSend  
-		        
-		if (outdoorTemp < 0) {
-			outdoorTempValue = -outdoorTemp*100 - 65536
-			outdoorTempValue = -outdoorTempValue
-			outdoorTempToSend = zigbee.convertHexToInt(swapEndianHex(hex(outdoorTempValue)))
-			if (settings.zipcode) {
-            	cmds += zigbee.writeAttribute(0xFF01, 0x0010, 0x29, outdoorTempToSend, [mfgCode: 0x119C])
-			}
-		} else {
-			outdoorTempValue = outdoorTemp*100
-			int tempa = outdoorTempValue.intdiv(256)
-			int tempb = (outdoorTempValue % 256) * 256
-			outdoorTempToSend = tempa + tempb
- 			if (settings.zipcode) {
-           		cmds += zigbee.writeAttribute(0xFF01, 0x0010, 0x29, outdoorTempToSend, [mfgCode: 0x119C])
+		
+        if(settings.EnableOutdorTemperatureParam)
+        {
+        	cmds += zigbee.writeAttribute(0xFF01, 0x0011, 0x21, 10800)//set the outdoor temperature timeout to 3 hours
+            if (outdoorTemp < 0) {
+                outdoorTempValue = -outdoorTemp*100 - 65536
+                outdoorTempValue = -outdoorTempValue
+                outdoorTempToSend = zigbee.convertHexToInt(swapEndianHex(hex(outdoorTempValue)))
+                cmds += zigbee.writeAttribute(0xFF01, 0x0010, 0x29, outdoorTempToSend, [mfgCode: 0x119C])
+            } else {
+                outdoorTempValue = outdoorTemp*100
+                int tempa = outdoorTempValue.intdiv(256)
+                int tempb = (outdoorTempValue % 256) * 256
+                outdoorTempToSend = tempa + tempb
+                cmds += zigbee.writeAttribute(0xFF01, 0x0010, 0x29, outdoorTempToSend, [mfgCode: 0x119C])
             }
-		}
+        }
+        else
+        {//delete outdoorTemp
+        	//the outdoor temperature cannot be directly erased from the thermostat.
+            //to erase it rapidly, the external temperature timeout must be set to the minimal value (30sec)
+        	cmds += zigbee.writeAttribute(0xFF01, 0x0011, 0x21, 30)//set the outdoor temperature timeout to 30sec
+        }
 		
         def mytimezone = location.getTimeZone()
         long dstSavings = 0
@@ -1108,15 +1139,11 @@ void sendZigbeeCommands(cmds, delay = 1000) {
 }
 
 
-private def get_weather(zipcode) {
-	def weather
-	if (zipcode) {
-		traceEvent(settings.logFilter,"refresh>ZipCode: ${zipcode}",settings.trace)
-		weather = getWeatherFeature( "conditions", zipcode.trim() )
-	} else {
-		traceEvent(settings.logFilter,"refresh>ZipCode: current location",settings.trace)
-		weather = getWeatherFeature( "conditions" )
-	}
+private def get_weather() {
+	def mymap = getTwcConditions()
+    traceEvent(settings.logFilter,"get_weather> $mymap",settings.trace)	
+    def weather = mymap.temperature
+    traceEvent(settings.logFilter,"get_weather> $weather",settings.trace)	
 	return weather
 }
 

@@ -1,14 +1,15 @@
 /**
 Copyright Sinopé Technologies
-1.0.1
-SVN-435
+1.0.2
+SVN-493
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
 **/
 preferences {
 	input("zipcode", "text", title: "ZipCode", description: "Enter your ZipCode for setting outdoor Temp")
     input("BacklightAutoDimParam", "enum", title:"Backlight setting (default: blank)", description: "On Demand or Sensing", options: ["On Demand", "Sensing"], multiple: false, required: false)
-	input("trace", "bool", title: "Trace", description:"Set it to true to enable tracing")
+   	input("EnableOutdorTemperatureParam", "bool", title: "enable/disable outdoor temperature", description: "Set it to true to enable outdoor temperature on the thermostat")
+    input("trace", "bool", title: "Trace", description:"Set it to true to enable tracing")
 	input("logFilter", "number", title: "(1=ERROR only,2=<1+WARNING>,3=<2+INFO>,4=<3+DEBUG>,5=<4+TRACE>)", range: "1..5",
 		description: "optional")
 }
@@ -60,14 +61,11 @@ metadata {
 			profileId: "0104",
 			inClusters: "0000,0003,0004,0005,0201,0204,0402,0B04,0B05",
 			outClusters: "0019"
-            
-		fingerprint endpoint: "1",
-			profileId: "0104",
-			inClusters: "0000,0003,0004,0005,0201,0204,0402,0B04,0B05",
-			outClusters: "0019"
 
-		//		fingerprint profileId: "0104", inClusters: "0000,0003,0004,0005,0201,0204,0402,0B04,0B05", manufacturer: "Sinope Technologies", model: "TH1123ZB"
-		//		fingerprint profileId: "0104", inClusters: "0000,0003,0004,0005,0201,0204,0402,0B04,0B05", manufacturer: "Sinope Technologies", model: "TH1124ZB"
+        fingerprint endpoint: "1",
+        	profileId: "0104",
+        	inClusters: "0000,0003,0004,0005,0201,0204,0402,0B04,0B05,FF01",
+        	outClusters: "0019,FF01"
 	}
 
 
@@ -900,45 +898,42 @@ def refresh() {
 
 void refresh_misc() {
 
-	def scale=(state?.scale) ?: getTemperatureScale()
-	def weather = get_weather(settings.zipcode)
-	traceEvent(settings.logFilter,"refresh_misc>begin, scale=$scale, settings.zipcode=${settings.zipcode}, weather=$weather", settings.trace)
-	def cmds=[]    
+    def weather = get_weather()
+	traceEvent(settings.logFilter,"refresh_misc>begin, settings.EnableOutdorTemperatureParam=${settings.EnableOutdorTemperatureParam}, weather=$weather", settings.trace)
+	def cmds=[]
+
 	if (weather) {
 		double tempValue    
-		int outdoorTemp = weather.current_observation.temp_c.toInteger()
-		traceEvent(settings.logFilter,"refresh>outdoorTemp: ${weather.current_observation.temp_c}C",settings.trace)
+		int outdoorTemp = weather.toInteger()
 		String outdoorTempString        
-		if (scale == "C") {
-			tempValue = outdoorTemp.toDouble().round(1)
-			outdoorTempString = String.format('%2.1f', tempValue)
-		} else {
-			tempValue = celsiusToFahrenheit(outdoorTemp).toDouble().round()
-			outdoorTempString = String.format('%2d', tempValue.intValue())
-		}
 		def isChange = isStateChange(device, name, outdoorTempString)
 		def isDisplayed = isChange        
 		sendEvent( name: "outdoorTemp", value: outdoorTempString, unit: scale, displayed: isDisplayed)
 		int outdoorTempValue
 		int outdoorTempToSend  
-		        
-		if (outdoorTemp < 0) {
-			outdoorTempValue = -outdoorTemp*100 - 65536
-			outdoorTempValue = -outdoorTempValue
-			outdoorTempToSend = zigbee.convertHexToInt(swapEndianHex(hex(outdoorTempValue)))
-			if (settings.zipcode) {
-            	cmds += zigbee.writeAttribute(0xFF01, 0x0010, 0x29, outdoorTempToSend, [mfgCode: 0x119C])
-			}
-		} else {
-			outdoorTempValue = outdoorTemp*100
-			int tempa = outdoorTempValue.intdiv(256)
-			int tempb = (outdoorTempValue % 256) * 256
-			outdoorTempToSend = tempa + tempb
- 			if (settings.zipcode) {
-           		cmds += zigbee.writeAttribute(0xFF01, 0x0010, 0x29, outdoorTempToSend, [mfgCode: 0x119C])
+
+        if(settings.EnableOutdorTemperatureParam)
+        {
+        	cmds += zigbee.writeAttribute(0xFF01, 0x0011, 0x21, 10800)//set the outdoor temperature timeout to 3 hours
+            if (outdoorTemp < 0) {
+                outdoorTempValue = -outdoorTemp*100 - 65536
+                outdoorTempValue = -outdoorTempValue
+                outdoorTempToSend = zigbee.convertHexToInt(swapEndianHex(hex(outdoorTempValue)))
+                cmds += zigbee.writeAttribute(0xFF01, 0x0010, 0x29, outdoorTempToSend, [mfgCode: 0x119C])
+            } else {
+                outdoorTempValue = outdoorTemp*100
+                int tempa = outdoorTempValue.intdiv(256)
+                int tempb = (outdoorTempValue % 256) * 256
+                outdoorTempToSend = tempa + tempb
+                cmds += zigbee.writeAttribute(0xFF01, 0x0010, 0x29, outdoorTempToSend, [mfgCode: 0x119C])
             }
-		}
-		
+        }
+        else
+        {//delete outdoorTemp
+        	//the outdoor temperature cannot be directly erased from the thermostat.
+            //to erase it rapidly, the external temperature timeout must be set to the minimal value (30sec)
+        	cmds += zigbee.writeAttribute(0xFF01, 0x0011, 0x21, 30)//set the outdoor temperature timeout to 30sec
+        }
         
       	def mytimezone = location.getTimeZone()
         long dstSavings = 0
@@ -985,15 +980,11 @@ void sendZigbeeCommands(cmds, delay = 1000) {
 }
 
 
-private def get_weather(zipcode) {
-	def weather
-	if (zipcode) {
-		traceEvent(settings.logFilter,"refresh>ZipCode: ${zipcode}",settings.trace)
-		weather = getWeatherFeature( "conditions", zipcode.trim() )
-	} else {
-		traceEvent(settings.logFilter,"refresh>ZipCode: current location",settings.trace)	
-		weather = getWeatherFeature( "conditions" )
-	}
+private def get_weather() {
+	def mymap = getTwcConditions()
+    traceEvent(settings.logFilter,"get_weather> $mymap",settings.trace)	
+    def weather = mymap.temperature
+    traceEvent(settings.logFilter,"get_weather> $weather",settings.trace)	
 	return weather
 }
 
