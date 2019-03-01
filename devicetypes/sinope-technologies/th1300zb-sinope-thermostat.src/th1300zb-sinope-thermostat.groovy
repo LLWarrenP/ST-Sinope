@@ -89,7 +89,7 @@ preferences {
 	tiles(scale: 2) {
 		multiAttributeTile(name: "thermostatMulti", type: "thermostat", width: 6, height: 4, canChangeIcon: true) {
 			tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
-				attributeState("default", label: '${currentValue}�', unit: "dF", backgroundColor: "#269bd2")
+				attributeState("default", label: '${currentValue}', unit: "dF", backgroundColor: "#269bd2")
 			}
 			tileAttribute("device.heatingSetpoint", key: "VALUE_CONTROL") {
 				attributeState("VALUE_UP", action: "heatLevelUp")
@@ -114,7 +114,7 @@ preferences {
 		//-- Value Tiles -------------------------------------------------------------------------------------------
 
 		valueTile("temperature", "device.temperature", inactiveLabel: false, width: 2, height: 2) {
-			state("temperature", label:'${currentValue}�', backgroundColors: getBackgroundColors() )		}
+			state("temperature", label:'${currentValue}', backgroundColors: getBackgroundColors() )		}
 
 		valueTile("heatingDemand", "device.heatingDemand", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
 			state "heatingDemand", label: '${currentValue}%', unit: "%", backgroundColor: "#ffffff"
@@ -123,7 +123,7 @@ preferences {
 		//-- Standard Tiles ----------------------------------------------------------------------------------------
 
 		valueTile("heatingSetpoint", "device.heatingSetpoint", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
-			state "heat", label: '${currentValue}�', backgroundColor: "#ffffff"
+			state "heat", label: '${currentValue}', backgroundColor: "#ffffff"
 		}
 
 		standardTile("heatLevelUp", "device.heatingSetpoint", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
@@ -164,7 +164,7 @@ preferences {
 		}
 		standardTile("weatherTemperature", "device.outdoorTemp", inactiveLabel: false, width: 2, height: 2,
 			decoration: "flat", canChangeIcon: false) {
-			state "default", label: 'OutdoorTemp ${currentValue}�', unit: "dF",
+			state "default", label: 'OutdoorTemp ${currentValue}', unit: "dF",
 				icon: "st.Weather.weather2",
 				backgroundColor: "#ffffff"
 		}
