@@ -905,10 +905,11 @@ void refresh_misc() {
 	if (weather) {
 		double tempValue    
 		int outdoorTemp = weather.toInteger()
-		String outdoorTempString        
+        if (state?.scale == 'F') outdoorTemp = fahrenheitToCelsius(outdoorTemp).toDouble().round()
+		String outdoorTempString
 		def isChange = isStateChange(device, name, outdoorTempString)
 		def isDisplayed = isChange        
-		sendEvent( name: "outdoorTemp", value: outdoorTempString, unit: scale, displayed: isDisplayed)
+		sendEvent( name: "outdoorTemp", value: outdoorTempString, unit: state?.scale, displayed: isDisplayed)
 		int outdoorTempValue
 		int outdoorTempToSend  
 
