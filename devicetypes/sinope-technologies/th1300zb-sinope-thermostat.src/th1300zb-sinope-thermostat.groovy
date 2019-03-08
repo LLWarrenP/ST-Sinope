@@ -1,32 +1,34 @@
 /**
 Copyright Sinopé Technologies
-1.0.3
-SVN-493
+1.0.4
+SVN-496
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 **/
+
 metadata {
 
 preferences {
 		input("AirFloorModeParam", "enum", title: "Control mode (Default: Floor)", description:"Control mode using the floor or ambient temperature.", options: ["Ambient", "Floor"], multiple: false, required: false)
-        input("RoomSetpointMinParam", "number", title:"Minimum Setpoint (5 to 36, Default: 5)", range:("5..36"), description:"Minimum setpoint temperature available. Must be lower than Maximum setpoint.", required: false)
-    	input("RoomSetpointMaxParam", "number", title:"Maximum Setpoint (5 to 36, Default: 36)", range:("5..36"), description:"Maximum setpoint temperature available. Must be higher than Minimum setpoint.", required: false)
-		//input("UnoccupySetpointParam", "number", title: "Away setpoint (5 to 36)", description: "Thermostat's assigned temperature when the network is in away mode.", range:("5..36"), required: false)
+        input("RoomSetpointMinParam", "number", title:"Maximum Setpoint (5C to 36C / 41F to 97F)", range:("5..97"), description:"Minimum setpoint temperature available. Must be lower than Maximum setpoint.", required: false)
+    	input("RoomSetpointMaxParam", "number", title:"Maximum Setpoint (5C to 36C / 41F to 97F)", range:("5..97"), description:"Maximum setpoint temperature available. Must be higher than Minimum setpoint.", required: false)
+		//input("UnoccupySetpointParam", "number", title: "Away setpoint (5C to 36C / 41F to 97F)", description: "Thermostat's assigned temperature when the network is in away mode.", range:("5..36"), required: false)
         input("BacklightAutoDimParam", "enum", title:"Backlight setting (Default: Sensing)", description: "On Demand or Sensing", options: ["Sensing", "On Demand"], multiple: false, required: false)
     	input("KbdLockParam", "enum", title: "Keypad lock (Default: Unlocked)", description: "Enable or disable the device's buttons.",options: ["Lock", "Unlock"], multiple: false, required: false)
     	input("TimeFormatParam", "enum", title:"Time Format (Default: 24h)", description: "Time format displayed by the device.", options:["24h", "12h AM/PM"], multiple: false, required: false)
     	input("EnableOutdorTemperatureParam", "bool", title: "enable/disable outdoor temperature", description: "Set it to true to enable outdoor temperature on the thermostat")
         input("FloorSensorTypeParam", "enum", title:"Probe type (Default: 10k)", description: "Choose probe type.", options: ["10k", "12k"], multiple: false, required: false)
-    	input("FloorMaxAirTemperatureParam", "number", title:"Ambient limit (5 to 36, Default: Off)", range:("5..36"),
+    	input("FloorMaxAirTemperatureParam", "number", title:"Ambient limit (5C to 36C / 41F to 97)", range:("5..97"),
     		description: "The maximum ambient temperature limit when in floor control mode.", required: false)
-        input("FloorLimitMinParam", "number", title:"Floor low limit (5 to 36, Default: Off)", range:("5..36"), description: "The minimum temperature limit of the floor when in ambient control mode.", required: false)
-    	input("FloorLimitMaxParam", "number", title:"Floor high limit (5 to 36, Default: Off)", range:("5..36"), description: "The maximum temperature limit of the floor when in ambient control mode.", required: false)
+        input("FloorLimitMinParam", "number", title:"Floor low limit (5C to 36C / 41F to 97F)", range:("5..97"), description: "The minimum temperature limit of the floor when in ambient control mode.", required: false)
+    	input("FloorLimitMaxParam", "number", title:"Floor high limit (5C to 36C / 41F to 97F)", range:("5..97"), description: "The maximum temperature limit of the floor when in ambient control mode.", required: false)
     	input("AuxLoadParam", "number", title:"Auxiliary load value (Default: 0)", range:("0..65535"),
         	description: "Enter the power in watts of the heating element connected to the auxiliary output.", required: false)
     	input("trace", "bool", title: "Trace (Only for debugging)", description: "Set it to true to enable tracing")
 		input("logFilter", "number", title: "Trace level", range: "1..5",
 			description: "1= ERROR only, 2= <1+WARNING>, 3= <2+INFO>, 4= <3+DEBUG>, 5= <4+TRACE>")
 }
+
 
 	definition(name: "TH1300ZB Sinope Thermostat", namespace: "Sinope Technologies", author: "Sinope Technologies") {
 		capability "thermostatHeatingSetpoint"
@@ -52,7 +54,10 @@ preferences {
 		//		attribute "keypadLockStatus" ,"enum", ["unlock", "lock1","lock2","lock3","lock4","lock5"]
         attribute "gfciStatus", "enum", ["OK", "error"]
         attribute "floorLimitStatus", "enum", ["OK", "floorLimitLowReached", "floorLimitMaxReached", "floorAirLimitLowReached", "floorAirLimitMaxReached"]
-        attribute "temperature", "string"        
+        attribute "temperature", "string"
+
+		attribute "rangeHigh", "number"
+        attribute "rangeLow", "number"
 
 		command "heatLevelUp"
 		command "heatLevelDown"
@@ -288,6 +293,7 @@ def updated() {
             cmds += zigbee.writeAttribute(0x0201, 0x0014, 0x29, 1500)
         }
         */
+        
         if(AirFloorModeParam == "Ambient"){//Air mode
             traceEvent(settings.logFilter,"Set to Ambient mode",settings.trace)
             cmds += zigbee.writeAttribute(0xFF01, 0x0105, 0x30, 0x0001)
@@ -296,6 +302,7 @@ def updated() {
             traceEvent(settings.logFilter,"Set to Floor mode",settings.trace)
             cmds += zigbee.writeAttribute(0xFF01, 0x0105, 0x30, 0x0002)
         }
+        
         if(KbdLockParam == "Lock"){
             traceEvent(settings.logFilter,"device lock",settings.trace)
             lock1()
@@ -304,6 +311,7 @@ def updated() {
             traceEvent(settings.logFilter,"device unlock",settings.trace)
             unlock()
         }
+        
         if(TimeFormatParam == "12h AM/PM"){//12h AM/PM
             traceEvent(settings.logFilter,"Set to 12h AM/PM",settings.trace)
             cmds += zigbee.writeAttribute(0xFF01, 0x0114, 0x30, 0x0001)
@@ -312,14 +320,16 @@ def updated() {
             traceEvent(settings.logFilter,"Set to 24h",settings.trace)
             cmds += zigbee.writeAttribute(0xFF01, 0x0114, 0x30, 0x0000)
         }
+        
         if(BacklightAutoDimParam == "On Demand"){	//Backlight when needed
             traceEvent(settings.logFilter,"Backlight on press",settings.trace)
             cmds += zigbee.writeAttribute(0x0201, 0x0402, 0x30, 0x0000)
         }
-        else{									//Backlight sensing
+        else{//Backlight sensing
             traceEvent(settings.logFilter,"Backlight sensing",settings.trace)
             cmds += zigbee.writeAttribute(0x0201, 0x0402, 0x30, 0x0001)
         }
+        
         if(FloorSensorTypeParam == "12k"){//sensor type = 12k
             traceEvent(settings.logFilter,"Sensor type is 12k",settings.trace)
             cmds += zigbee.writeAttribute(0xFF01, 0x010B, 0x30, 0x0001)
@@ -328,46 +338,97 @@ def updated() {
             traceEvent(settings.logFilter,"Sensor type is 10k",settings.trace)
             cmds += zigbee.writeAttribute(0xFF01, 0x010B, 0x30, 0x0000)
         }
+        
         if(FloorMaxAirTemperatureParam){
-            def MaxAirTemperatureValue = FloorMaxAirTemperatureParam.toInteger()
+        	def MaxAirTemperatureValue
+        	if(state?.scale == 'F')
+            {
+            	 MaxAirTemperatureValue = fahrenheitToCelsius(FloorMaxAirTemperatureParam).toInteger()
+            }
+            else//state?.scale == 'C'
+            {
+            	MaxAirTemperatureValue = FloorMaxAirTemperatureParam.toInteger()
+            }
+            MaxAirTemperatureValue = checkTemperature(MaxAirTemperatureValue)//check if the temperature is between the maximum and minimum
             MaxAirTemperatureValue =  MaxAirTemperatureValue * 100
             cmds += zigbee.writeAttribute(0xFF01, 0x0108, 0x29, MaxAirTemperatureValue)
         }
         else{
             cmds += zigbee.writeAttribute(0xFF01, 0x0108, 0x29, 0x8000)
         }
+        
         if(RoomSetpointMinParam){
-            def RoomSetpointMinValue = RoomSetpointMinParam.toInteger()
+       	 	def RoomSetpointMinValue
+            if(state?.scale == 'F')
+            {
+            	RoomSetpointMinValue = fahrenheitToCelsius(RoomSetpointMinParam).toInteger()
+            }
+            else//state?.scale == 'C'
+            {
+            	RoomSetpointMinValue = RoomSetpointMinParam.toInteger()
+            }
+            RoomSetpointMinValue = checkTemperature(RoomSetpointMinValue)//check if the temperature is between the maximum and minimum
             RoomSetpointMinValue =  RoomSetpointMinValue * 100
             cmds += zigbee.writeAttribute(0x0201, 0x0015, 0x29, RoomSetpointMinValue)
         }
         else{
             cmds += zigbee.writeAttribute(0x0201, 0x0015, 0x29, 0x01F4)
         }
+        
         if(RoomSetpointMaxParam){
-            def RoomSetpointMaxValue = RoomSetpointMaxParam.toInteger()
+            def RoomSetpointMaxValue
+            if(state?.scale == 'F')
+            {
+            	RoomSetpointMaxValue = fahrenheitToCelsius(RoomSetpointMaxParam).toInteger()
+            }
+            else//state?.scale == 'C'
+            {
+            	RoomSetpointMaxValue = RoomSetpointMaxParam.toInteger()
+            }
+            RoomSetpointMaxValue = checkTemperature(RoomSetpointMaxValue)//check if the temperature is between the maximum and minimum
             RoomSetpointMaxValue =  RoomSetpointMaxValue * 100
             cmds += zigbee.writeAttribute(0x0201, 0x0016, 0x29, RoomSetpointMaxValue)
         }
         else{
             cmds += zigbee.writeAttribute(0x0201, 0x0016, 0x29, 0x0E10)
         }
+        
         if(FloorLimitMinParam){
-            def FloorLimitMinValue = FloorLimitMinParam.toInteger()
+        	def FloorLimitMinValue
+            if(state?.scale == 'F')
+            {
+            	FloorLimitMinValue = fahrenheitToCelsius(FloorLimitMinParam).toInteger()
+            }
+        	else//state?.scale == 'C'
+            {
+            	FloorLimitMinValue = FloorLimitMinParam.toInteger()
+            }
+            FloorLimitMinValue = checkTemperature(FloorLimitMinValue)//check if the temperature is between the maximum and minimum
             FloorLimitMinValue =  FloorLimitMinValue * 100
             cmds += zigbee.writeAttribute(0xFF01, 0x0109, 0x29, FloorLimitMinValue)
         }
         else{
             cmds += zigbee.writeAttribute(0xFF01, 0x0109, 0x29, 0x8000)
         }
+        
         if(FloorLimitMaxParam){
-            def FloorLimitMaxValue = FloorLimitMaxParam.toInteger()
+        	def FloorLimitMaxValue
+            if(state?.scale == 'F')
+            {
+            	FloorLimitMaxValue = fahrenheitToCelsius(FloorLimitMaxParam).toInteger()
+            }
+            else//state?.scale == 'C'
+            {
+            	FloorLimitMaxValue = FloorLimitMaxParam.toInteger()
+            }
+            FloorLimitMaxValue = checkTemperature(FloorLimitMaxValue)//check if the temperature is between the maximum and minimum
             FloorLimitMaxValue =  FloorLimitMaxValue * 100
             cmds += zigbee.writeAttribute(0xFF01, 0x010A, 0x29, FloorLimitMaxValue)
         }
         else{
             cmds += zigbee.writeAttribute(0xFF01, 0x010A, 0x29, 0x8000)
         }
+        
         if(AuxLoadParam){
             def AuxLoadValue = AuxLoadParam.toInteger()
             cmds += zigbee.writeAttribute(0xFF01, 0x0118, 0x21, AuxLoadValue)
@@ -375,6 +436,7 @@ def updated() {
         else{
             cmds += zigbee.writeAttribute(0xFF01, 0x0118, 0x21, 0x0000)
         }
+        
         cmds += zigbee.readAttribute(0x0201, 0x0015)	// Rd thermostat Minimum heating setpoint
         cmds += zigbee.readAttribute(0x0201, 0x0016)	// Rd thermostat Maximum heating setpoint
         
@@ -440,7 +502,7 @@ def createCustomMap(descMap){
 			map.value = getTemperatureValue(descMap.value, true)
             if(map.value > 158)
             {
-            	map.value = "�Sensor Error"
+            	map.value = "Sensor Error"
             }
             else
             {
@@ -1026,7 +1088,7 @@ def configure(event = 'appTouch') {
 def refresh() {
 	if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 20000) {			// Check if last update > 20 sec
 		state.updatedLastRanAt = now() 
-        
+                
         occupy()
         
         state?.scale = getTemperatureScale()
@@ -1035,10 +1097,10 @@ def refresh() {
 
         cmds += zigbee.readAttribute(0x0204, 0x0000)	// Rd thermostat display mode
         if (state?.scale == 'C') {
-            cmds += zigbee.writeAttribute(0x0204, 0x0000, 0x30, 0)	// Wr �C on thermostat display
+            cmds += zigbee.writeAttribute(0x0204, 0x0000, 0x30, 0)	// Wr C on thermostat display
 
         } else {
-            cmds += zigbee.writeAttribute(0x0204, 0x0000, 0x30, 1)	// Wr �F on thermostat display 
+            cmds += zigbee.writeAttribute(0x0204, 0x0000, 0x30, 1)	// Wr F on thermostat display 
         }
         cmds += zigbee.readAttribute(0x0201, 0x0000)	// Rd thermostat Local temperature
         cmds += zigbee.readAttribute(0x0201, 0x0012)	// Rd thermostat Occupied heating setpoint
@@ -1071,10 +1133,14 @@ void refresh_misc() {
 	if (weather) {
 		double tempValue
         int outdoorTemp = weather.toInteger()
-        if (state?.scale == 'F') outdoorTemp = fahrenheitToCelsius(outdoorTemp).toDouble().round()
+        if(state?.scale == 'F')
+        {//the value sent to the thermostat must be in C
+        //the thermostat make the conversion to F
+        	outdoorTemp = fahrenheitToCelsius(outdoorTemp).toDouble().round()
+        }
 		String outdoorTempString
 		def isChange = isStateChange(device, name, outdoorTempString)
-		def isDisplayed = isChange        
+		def isDisplayed = isChange
 		sendEvent( name: "outdoorTemp", value: outdoorTempString, unit: state?.scale, displayed: isDisplayed)
 		int outdoorTempValue
 		int outdoorTempToSend  
@@ -1113,7 +1179,7 @@ void refresh_misc() {
 		traceEvent(settings.logFilter, "refreshTime>myTime = ${secFrom2000}  reversed = ${secIndian}", settings.trace)
 		cmds += zigbee.writeAttribute(0xFF01, 0x0020, 0x23, secIndian, [mfgCode: 0x119C])
         cmds += zigbee.readAttribute(0x0201, 0x001C)
-                
+
 		sendZigbeeCommands(cmds)
 	}
 	//refreshTime()    
@@ -1186,6 +1252,34 @@ private byte[] reverseArray(byte[] array) {
 	}
 
 	return array
+}
+
+private def checkTemperature(def number)
+{
+	def rtnNumber = number
+	/*if(state?.scale == 'F')
+    {
+    	if(number < 41)
+        {
+        	rtnNumber = 41
+        }
+        else if(number > 97)
+    	{
+        	rtnNumber = 97
+        }
+    }
+    else//state?.scale == 'C'
+    {*/
+    	if(number < 5)
+        {
+        	rtnNumber = 5
+        }
+        else if(number > 36)
+    	{
+        	rtnNumber = 36
+        }
+    //}
+    return rtnNumber
 }
 
 private int get_LOG_ERROR() {

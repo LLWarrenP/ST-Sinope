@@ -1,12 +1,11 @@
 /**
 Copyright Sinopé Technologies
-1.0.2
-SVN-493
+1.0.4
+SVN-497
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
 **/
 preferences {
-	input("zipcode", "text", title: "ZipCode", description: "Enter your ZipCode for setting outdoor Temp")
     input("BacklightAutoDimParam", "enum", title:"Backlight setting (default: blank)", description: "On Demand or Sensing", options: ["On Demand", "Sensing"], multiple: false, required: false)
    	input("EnableOutdorTemperatureParam", "bool", title: "enable/disable outdoor temperature", description: "Set it to true to enable outdoor temperature on the thermostat")
     input("trace", "bool", title: "Trace", description:"Set it to true to enable tracing")
@@ -905,11 +904,15 @@ void refresh_misc() {
 	if (weather) {
 		double tempValue    
 		int outdoorTemp = weather.toInteger()
-        if (state?.scale == 'F') outdoorTemp = fahrenheitToCelsius(outdoorTemp).toDouble().round()
-		String outdoorTempString
+        if(state?.scale == 'F')
+        {//the value sent to the thermostat must be in C
+        //the thermostat make the conversion to F
+        	outdoorTemp = fahrenheitToCelsius(outdoorTemp).toDouble().round()
+        }
+		String outdoorTempString        
 		def isChange = isStateChange(device, name, outdoorTempString)
 		def isDisplayed = isChange        
-		sendEvent( name: "outdoorTemp", value: outdoorTempString, unit: state?.scale, displayed: isDisplayed)
+		sendEvent( name: "outdoorTemp", value: outdoorTempString, unit: scale, displayed: isDisplayed)
 		int outdoorTempValue
 		int outdoorTempToSend  
 
