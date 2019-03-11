@@ -1,7 +1,7 @@
 /**
 Copyright Sinopé Technologies
-1.0.4
-SVN-497
+1.0.5
+SVN-503
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
 **/
@@ -102,7 +102,7 @@ metadata {
 		//-- Value Tiles -------------------------------------------------------------------------------------------
 
 		valueTile("temperature", "device.temperature", width: 4, height: 2) {
-			state("temperature", label: '${currentValue}°',
+			state("temperature", label: '${currentValue}',
 				backgroundColors: getBackgroundColors()
 			)
 		}
@@ -114,7 +114,7 @@ metadata {
 		//-- Standard Tiles ----------------------------------------------------------------------------------------
 
 		valueTile("heatingSetpoint", "device.heatingSetpoint", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
-			state "heat", label: '${currentValue}°', backgroundColor: "#ffffff"
+			state "heat", label: '${currentValue}', backgroundColor: "#ffffff"
 		}
 
 		standardTile("heatLevelUp", "device.heatingSetpoint", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
@@ -155,7 +155,7 @@ metadata {
 		}
 		standardTile("weatherTemperature", "device.outdoorTemp", inactiveLabel: false, width: 2, height: 2,
 			decoration: "flat", canChangeIcon: false) {
-			state "default", label: 'OutdoorTemp ${currentValue}°', unit: "dF",
+			state "default", label: 'OutdoorTemp ${currentValue}', unit: "dF",
 				icon: "st.Weather.weather2",
 				backgroundColor: "#ffffff"
 		}

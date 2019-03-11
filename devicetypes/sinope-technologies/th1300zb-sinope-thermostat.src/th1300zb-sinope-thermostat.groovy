@@ -1,7 +1,7 @@
 /**
 Copyright Sinopé Technologies
-1.0.4
-SVN-496
+1.0.5
+SVN-503
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 **/
@@ -1097,10 +1097,10 @@ def refresh() {
 
         cmds += zigbee.readAttribute(0x0204, 0x0000)	// Rd thermostat display mode
         if (state?.scale == 'C') {
-            cmds += zigbee.writeAttribute(0x0204, 0x0000, 0x30, 0)	// Wr C on thermostat display
+            cmds += zigbee.writeAttribute(0x0204, 0x0000, 0x30, 0)	// Wr �C on thermostat display
 
         } else {
-            cmds += zigbee.writeAttribute(0x0204, 0x0000, 0x30, 1)	// Wr F on thermostat display 
+            cmds += zigbee.writeAttribute(0x0204, 0x0000, 0x30, 1)	// Wr �F on thermostat display 
         }
         cmds += zigbee.readAttribute(0x0201, 0x0000)	// Rd thermostat Local temperature
         cmds += zigbee.readAttribute(0x0201, 0x0012)	// Rd thermostat Occupied heating setpoint
